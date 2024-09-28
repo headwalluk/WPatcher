@@ -1,0 +1,73 @@
+diff -ur woocommerce/includes/class-woocommerce.php woocommerce-new/includes/class-woocommerce.php
+--- woocommerce/includes/class-woocommerce.php	2024-09-25 13:56:36.000000000 +0100
++++ woocommerce-new/includes/class-woocommerce.php	2024-09-28 14:49:27.074649507 +0100
+@@ -287,7 +287,7 @@
+ 		register_shutdown_function( array( $this, 'log_errors' ) );
+ 
+ 		add_action( 'plugins_loaded', array( $this, 'on_plugins_loaded' ), -1 );
+-		add_action( 'plugins_loaded', array( $this, 'init_jetpack_connection_config' ), 1 );
++		// add_action( 'plugins_loaded', array( $this, 'init_jetpack_connection_config' ), 1 );
+ 		add_action( 'admin_notices', array( $this, 'build_dependencies_notice' ) );
+ 		add_action( 'after_setup_theme', array( $this, 'setup_environment' ) );
+ 		add_action( 'after_setup_theme', array( $this, 'include_template_functions' ), 11 );
+@@ -330,9 +330,9 @@
+ 		$container->get( WebhookUtil::class );
+ 		$container->get( Marketplace::class );
+ 		$container->get( TimeUtil::class );
+-		$container->get( ComingSoonAdminBarBadge::class );
+-		$container->get( ComingSoonCacheInvalidator::class );
+-		$container->get( ComingSoonRequestHandler::class );
++		// $container->get( ComingSoonAdminBarBadge::class );
++		// $container->get( ComingSoonCacheInvalidator::class );
++		// $container->get( ComingSoonRequestHandler::class );
+ 
+ 		/**
+ 		 * These classes have a register method for attaching hooks.
+@@ -658,8 +658,8 @@
+ 		include_once WC_ABSPATH . 'includes/class-wc-logger.php';
+ 		include_once WC_ABSPATH . 'includes/queue/class-wc-action-queue.php';
+ 		include_once WC_ABSPATH . 'includes/queue/class-wc-queue.php';
+-		include_once WC_ABSPATH . 'includes/admin/marketplace-suggestions/class-wc-marketplace-updater.php';
+-		include_once WC_ABSPATH . 'includes/admin/class-wc-admin-marketplace-promotions.php';
++		// include_once WC_ABSPATH . 'includes/admin/marketplace-suggestions/class-wc-marketplace-updater.php';
++		// include_once WC_ABSPATH . 'includes/admin/class-wc-admin-marketplace-promotions.php';
+ 		include_once WC_ABSPATH . 'includes/blocks/class-wc-blocks-utils.php';
+ 
+ 		/**
+@@ -831,6 +831,19 @@
+ 		 */
+ 		do_action( 'before_woocommerce_init' ); // phpcs:ignore WooCommerce.Commenting.CommentHooks.MissingSinceComment
+ 
++        // Force some options to no and autoload them.
++        $options_to_no = [
++            'woocommerce_allow_tracking',
++            'marketplace_suggestions',
++            'woocommerce_show_marketplace_suggestions',
++            'woocommerce_feature_order_attribution_enabled'
++        ];
++        foreach( $options_to_no as $option_name ) {
++            if( filter_var( get_option( $option_name, false ),  FILTER_VALIDATE_BOOLEAN ) !== false ) {
++                update_option( $option_name, 'no', true );
++            }
++        }
++
+ 		// Set up localisation.
+ 		$this->load_plugin_textdomain();
+ 
+diff -ur woocommerce/woocommerce.php woocommerce-new/woocommerce.php
+--- woocommerce/woocommerce.php	2024-09-25 13:56:36.000000000 +0100
++++ woocommerce-new/woocommerce.php	2024-09-28 14:49:27.034649040 +0100
+@@ -65,3 +65,13 @@
+ if ( class_exists( \Automattic\Jetpack\Connection\Rest_Authentication::class ) ) {
+ 	\Automattic\Jetpack\Connection\Rest_Authentication::init();
+ }
++
++// START : wpatcher
++add_filter( 'plugin_row_meta', function($links, $file){
++    if( $file == 'woocommerce/woocommerce.php'){
++        $links['wpatcher'] = '<span style="background-color: purple; color: white; padding:0.2em 0.5em; font-weight: 700; border-radius: 0.3em">PATCHED</span>';
++    }
++    
++    return $links;
++}, 10, 2 );
++// END : wpatcher

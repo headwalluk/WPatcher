@@ -1,0 +1,17 @@
+diff -ur wp-sweep/wp-sweep.php wp-sweep-new/wp-sweep.php
+--- wp-sweep/wp-sweep.php	2024-09-28 20:22:32.861531764 +0100
++++ wp-sweep-new/wp-sweep.php	2024-09-28 20:23:31.006349703 +0100
+@@ -55,3 +55,13 @@
+  * Init WP-Sweep
+  */
+ WPSweep::get_instance();
++
++// START : wpatcher
++add_filter( 'plugin_row_meta', function($links, $file){
++    if( $file == 'wp-sweep/wp-sweep.php'){
++        $links['wpatcher'] = '<span style="background-color: purple; color: white; padding:0.2em 0.5em; font-weight: 700; border-radius: 0.3em">PATCHED</span>';
++    }
++    
++    return $links;
++}, 10, 2 );
++// END : wpatcher
