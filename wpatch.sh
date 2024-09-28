@@ -493,7 +493,7 @@ ACTIVE_THEMES=($(wp theme list --path="${WP_ROOT}" --skip-plugins --skip-themes 
 #
 #   COMPONENT_TYPE,COMPONENT_SLUG,COMPONENT_VERSION,PATCH_FILE_NAME
 #
-echo "Scanning site for plugins that can be patched"
+echo "Scanning site for components to ${COMMAND}"
 PATCH_LIST=()
 for ACTIVE_PLUGIN_META in "${ACTIVE_PLUGINS[@]}"; do
   PLUGIN_SLUG=$(echo "${ACTIVE_PLUGIN_META}" | cut -d',' -f1)
