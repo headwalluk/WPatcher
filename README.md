@@ -67,13 +67,18 @@ Use your own local collection of patches
 Create a file system like this:
 
 * /opt/my-wp-patches/
- * themes/
- * plugins/
-  * my-plugin/
-   * my-plugin-1.0.0.patch
-  * woocommerce/
-   * woocommerce-9.3.2.patch
-   * woocommerce-9.3.3.patch
+	* themes/
+		* astra/
+			* astra-4.8.0.patch
+			* astra-4.8.1.patch
+	* plugins/
+		* my-plugin/
+			* my-plugin-1.0.0.patch
+			* my-plugin-1.0.1.patch
+			* my-plugin-1.0.2.patch
+		* woocommerce/
+			* woocommerce-9.3.2.patch
+			* woocommerce-9.3.3.patch
 
 ```bash
 # Backup all your plugins to your local repository
