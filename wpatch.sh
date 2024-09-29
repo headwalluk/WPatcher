@@ -126,11 +126,11 @@ function show_inline_error() {
 #
 function configure_and_create_directories() {
   # Are we running from repository, or from installed location?
-  # if [ -d "${STARTUP_DIR}"/wpatches ]; then
-  #   echo "Running from repository"
-  #   PATCHES_DIR="${STARTUP_DIR}"/wpatches
-  #   IS_RUNNING_FROM_REPOS=1
-  # fi
+  if [ -d "${STARTUP_DIR}"/wpatches ]; then
+    echo "Running from repository"
+    PATCHES_DIR="${STARTUP_DIR}"/wpatches
+    IS_RUNNING_FROM_REPOS=1
+  fi
 
   if [ -z "${WORK_DIR}" ] && [ -n "${HOME}" ]; then
     WORK_DIR="${HOME}"/.wpatcher
@@ -556,7 +556,7 @@ function revert_patch() {
   fi
 }
 
-function update_patches_from_upstream() {
+function update_from_upstream() {
   rm -fr "${TEMP_DIR}" && mkdir -p "${TEMP_DIR}"
 
   pushd "${TEMP_DIR}" > /dev/null
@@ -565,8 +565,8 @@ function update_patches_from_upstream() {
   if [ $? -ne 0 ]; then
     echo "Failed to clone upstream repository"
   else
-    if [ ${IS_USING_CUSTOM_PATCHES_DIR} -ne 0 ]; then
-      echo -n "Updating $(basename "${STARTUP_BIN}") ... "
+    if [ ${IS_USING_CUSTOM_PATCHES_DIR} -eq 0 ]; then
+      echo -n "Updating latest patches ... "
       rm -fr "${PATCHES_DIR}" && cp -r wpatcher/wpatches "${PATCHES_DIR}"
       if [ $? -eq 0 ]; then
         echo $(show_inline_good "OK")
@@ -575,7 +575,7 @@ function update_patches_from_upstream() {
       fi
     fi
 
-    if [ -w "${STARTUP_BIN}" ]; then
+    if [ ${IS_RUNNING_FROM_REPOS} -ne 1 ] && [ -w "${STARTUP_BIN}" ]; then
       echo -n "Updating $(basename "${STARTUP_BIN}") ... "
       cp wpatcher/wpatch.sh "${STARTUP_BIN}"
       if [ $? -eq 0 ]; then
@@ -587,6 +587,9 @@ function update_patches_from_upstream() {
   fi
 
   popd > /dev/null
+
+  echo END
+  exit 0
 
   for COMPONENT_TYPE in "${COMPONENT_TYPES[@]}"; do
     mkdir -p "${PATCHES_DIR}"/"${COMPONENT_TYPE}"
@@ -603,6 +606,10 @@ function load_configuration() {
     [ ${IS_VERBOSE} -ne 0 ] && echo "Loading configuration from ${CONFIG_FILE_NAME}"
 
     source "${CONFIG_FILE_NAME}"
+
+    if [ -n "${PATCHES_DIR}" ]; then
+      IS_USING_CUSTOM_PATCHES_DIR=1
+    fi
   fi
 }
 
@@ -718,7 +725,7 @@ if [ ${IS_VERBOSE} -ne 0 ]; then
 fi
 
 if [ "${COMMAND}" == 'update' ]; then
-  update_patches_from_upstream
+  update_from_upstream
   exit 0
 fi
 
