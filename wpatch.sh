@@ -647,13 +647,22 @@ function parse_command_line() {
         shift 2
         ;;
 
-      --)
-        shift
-        break
-        ;;
+      # --)
+      #   shift
+      #   break
+      #   ;;
 
       *)
-        break
+        if [ -n "${1}" ] && [ -z "${COMMAND}" ]; then
+          COMMAND="${1}"
+          shift
+        elif [ -n "${1}" ] && [ -n "${COMMAND}" ]; then
+          echo "Cannot have multiple commands" >&2
+          show_usage_then_exit
+        else
+          # Finished parsing the command line
+          break
+        fi
         ;;
 
     esac
@@ -666,8 +675,6 @@ function parse_command_line() {
   if [ -z "${REQUESTED_COMPONENT_TYPE}" ]; then
     REQUESTED_COMPONENT_TYPE="${COMPONENT_TYPES[0]}"
   fi
-
-  COMMAND="${1}"
 
   if [ -z "${COMMAND}" ]; then
     echo "COMMAND not specified" >&2
