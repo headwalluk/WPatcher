@@ -714,6 +714,7 @@ fi
 
 if [ ${IS_VERBOSE} -ne 0 ]; then
   dump_required_variables
+  exit 0
 fi
 
 if [ "${COMMAND}" == 'update' ]; then
