@@ -577,7 +577,7 @@ function update_patches_from_upstream() {
 
     if [ -w "${STARTUP_BIN}" ]; then
       echo -n "Updating $(basename "${STARTUP_BIN}") ... "
-      cp wpatch.sh "${STARTUP_BIN}"
+      cp wpatcher/wpatch.sh "${STARTUP_BIN}"
       if [ $? -eq 0 ]; then
         echo $(show_inline_good "OK")
       else
