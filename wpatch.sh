@@ -567,7 +567,7 @@ function update_patches_from_upstream() {
   else
     if [ ${IS_USING_CUSTOM_PATCHES_DIR} -ne 0 ]; then
       echo -n "Updating $(basename "${STARTUP_BIN}") ... "
-      rm -fr "${PATCHES_DIR}" && mv wpatcher/wpatches "${PATCHES_DIR}"
+      rm -fr "${PATCHES_DIR}" && cp -r wpatcher/wpatches "${PATCHES_DIR}"
       if [ $? -eq 0 ]; then
         echo $(show_inline_good "OK")
       else
@@ -591,6 +591,8 @@ function update_patches_from_upstream() {
   for COMPONENT_TYPE in "${COMPONENT_TYPES[@]}"; do
     mkdir -p "${PATCHES_DIR}"/"${COMPONENT_TYPE}"
   done
+
+  rm -fr "${TEMP_DIR}"
 }
 
 ##
