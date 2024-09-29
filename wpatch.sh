@@ -30,6 +30,8 @@ IS_THEMES_SUPPORT_ENABLAED=0
 
 GIT_REPOS=https://github.com/headwalluk/wpatcher.git
 
+WPCLI_PARAMS=
+
 REQUIRED_VARIABLE_NAMES=(
   'STARTUP_DIR'
   'WORK_DIR'
@@ -188,7 +190,7 @@ function fail_if_bad_wp_root() {
     show_usage_then_exit
   fi
 
-  wp --path="${WP_ROOT}" plugin list > /dev/null 2> /dev/null
+  wp ${WPCLI_PARAMS} --path="${WP_ROOT}" plugin list > /dev/null 2> /dev/null
   if [ $? -ne 0 ]; then
     echo "WordPress installation is not valid: ${WP_ROOT}"
     exit 1
@@ -200,7 +202,7 @@ function fail_if_bad_wp_root() {
 #
 function get_wp_site_url_but_fail_if_bad() {
   local WP_ROOT="${1}"
-  local WP_URL=$(wp --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages option get siteurl)
+  local WP_URL=$(wp ${WPCLI_PARAMS} --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages option get siteurl)
 
   if [ $? -ne 0 ] || [ -z "${WP_URL}" ]; then
     echo "Failed to get the WordPress website URL"
@@ -643,6 +645,10 @@ if [ ! -d "${PATCHES_DIR}" ]; then
   exit 1
 fi
 
+if [ ${EUID} -eq 0 ]; then
+  WPCLI_PARAMS=--allow-root
+fi
+
 fail_if_bad_wp_root "${WP_ROOT}"
 
 get_wp_site_url_but_fail_if_bad "${WP_ROOT}"
@@ -653,8 +659,8 @@ echo "Site: ${WP_URL}"
 ##
 # Get a list of active plugins & themes on the site.
 #
-ACTIVE_PLUGINS=($(wp plugin list --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages --status=active --skip-update-check --format=csv --fields=name,version | grep -vE '^name,'))
-ACTIVE_THEMES=($(wp theme list --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages --status=active,parent --skip-update-check --format=csv --fields=name,version | grep -vE '^name,'))
+ACTIVE_PLUGINS=($(wp ${WPCLI_PARAMS} plugin list --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages --status=active --skip-update-check --format=csv --fields=name,version | grep -vE '^name,'))
+ACTIVE_THEMES=($(wp ${WPCLI_PARAMS} theme list --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages --status=active,parent --skip-update-check --format=csv --fields=name,version | grep -vE '^name,'))
 
 ACTIVE_COMPONENTS=($(printf 'plugins,%s\n' "${ACTIVE_PLUGINS[@]}") $(printf 'themes,%s\n' "${ACTIVE_THEMES[@]}"))
 
@@ -719,7 +725,7 @@ fi
 ##
 # Ready to apply the patch list.
 #
-[ -w "${WP_ROOT}" ] && wp --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages maintenance-mode activate
+[ -w "${WP_ROOT}" ] && wp ${WPCLI_PARAMS} --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages maintenance-mode activate
 PATCH_INDEX=0
 for PATCH_META in "${PATCH_LIST[@]}"; do
   COMPONENT_TYPE=$(echo "${PATCH_META}" | cut -d',' -f1)
@@ -746,7 +752,7 @@ for PATCH_META in "${PATCH_LIST[@]}"; do
 
   PATCH_INDEX=$((PATCH_INDEX + 1))
 done
-[ -w "${WP_ROOT}" ] && wp --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages maintenance-mode deactivate
+[ -w "${WP_ROOT}" ] && wp ${WPCLI_PARAMS} --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages maintenance-mode deactivate
 
 echo "Finished"
 exit 0
