@@ -557,19 +557,23 @@ function revert_patch() {
 }
 
 function update_patches_from_upstream() {
-  if [ ${IS_USING_CUSTOM_PATCHES_DIR} -ne 0 ]; then
-    echo "Updating patches from upstream is not supported when using a custom patches directory"
-    exit 1
-  fi
-
-  rm -fr "${PATCHES_DIR}"
   rm -fr "${TEMP_DIR}" && mkdir -p "${TEMP_DIR}"
+
   pushd "${TEMP_DIR}" > /dev/null
+
   git clone "${GIT_REPOS}"
   if [ $? -ne 0 ]; then
     echo "Failed to clone upstream repository"
   else
-    mv wpatcher/wpatches "${PATCHES_DIR}"
+    if [ ${IS_USING_CUSTOM_PATCHES_DIR} -ne 0 ]; then
+      echo -n "Updating $(basename "${STARTUP_BIN}") ... "
+      rm -fr "${PATCHES_DIR}" && mv wpatcher/wpatches "${PATCHES_DIR}"
+      if [ $? -eq 0 ]; then
+        echo $(show_inline_good "OK")
+      else
+        echo $(show_inline_error "failed")
+      fi
+    fi
 
     if [ -w "${STARTUP_BIN}" ]; then
       echo -n "Updating $(basename "${STARTUP_BIN}") ... "
@@ -580,7 +584,6 @@ function update_patches_from_upstream() {
         echo $(show_inline_error "failed")
       fi
     fi
-
   fi
 
   popd > /dev/null
