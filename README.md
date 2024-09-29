@@ -10,6 +10,8 @@ A tool for patching and unpatching WordPress plugins and themes.
 
 Make sure you've got a working version of [wp-cli](https://github.com/wp-cli/wp-cli)
 
+Install some prerequisites...
+
 ```bash
 # Debian / Ubuntu / Mint / etc...
 sudo apt install patch tar ncurses-bin wget
@@ -26,6 +28,27 @@ sudo mv ./wpatch /usr/local/bin/
 ```bash
 wpatch -h
 ```
+
+## Examples
+
+Patch all plugins that can be patched
+
+```bash
+wpatch --path /var/www/example.com/htdocs patch
+```
+
+Patch a single plugin
+
+```bash
+wpatch --path /var/www/example.com/htdocs --component woocommerce patch
+```
+
+Revert all patches
+
+```bash
+wpatch --path /var/www/example.com/htdocs unpatch
+```
+
 
 ## Contents
 

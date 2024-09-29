@@ -3,8 +3,7 @@
 ##
 # wpatch.sh
 #
-# Version: 0.1.0
-# Date: 2024-09-28
+# Version: 0.2.0
 # Project URI: https://github.com/headwalluk/wpatcher
 # Author: Paul Faulkner
 # Author URI: https://headwall-hosting.com/
@@ -18,6 +17,7 @@
 # excessive outgoing API calls, or to improve transient caching of slow result
 # sets.
 #
+# See CHANGELOG.md for updates and changes.
 # See README.md for usage and examples.
 # See LICENSE for licensing information.
 #
@@ -30,7 +30,7 @@ REQUIRED_VARIABLE_NAMES=(
   'WORK_DIR'
   'PATCHES_DIR'
   'WP_ROOT'
-  'REQUESTED_PATCH_TYPE'
+  'REQUESTED_COMPONENT_TYPE'
   'REPOSITORY_DIR'
   'TEMP_DIR'
   'PATCHED_DIR'
@@ -39,7 +39,7 @@ REQUIRED_VARIABLE_NAMES=(
 
 REQUIRED_BINARIES=('patch' 'tar' 'wp' 'tput')
 
-PATCH_TYPES=('plugins' 'themes')
+COMPONENT_TYPES=('plugins' 'themes')
 
 VALID_COMMANDS=('patch' 'unpatch')
 
@@ -61,8 +61,30 @@ COLOUR_GOOD=2
 # Show usage
 #
 function show_usage_then_exit() {
-  # Usage: tar [OPTION...] [FILE]...
-  echo "Usage: $(basename "${0}") [-p <45|90>] [-p <string>] COMMAND" >&2
+  local BIN=$(basename "${0}")
+  # echo "Usage: ${BIN} [-vh] [-p <WP_ROOT>] [-t <plugins|themes>] [-c <COMPONENT_SLUG>] <COMMAND>"
+  echo "Usage: ${BIN} [-vh] [-p <WP_ROOT>] [-c <COMPONENT_SLUG>] <COMMAND>"
+  echo
+
+  echo "If WP_ROOT is not set, it's assumed WordPress is installed in the current directory."
+  echo
+
+  echo "Examples:"
+  echo "   ${BIN} -p /var/www/example.com/htdocs patch"
+  echo "   ${BIN} -p /var/www/example.com/htdocs -c woocommerce patch"
+  echo "   ${BIN} -p /var/www/example.com/htdocs unpatch"
+  echo "   ${BIN} -p /var/www/example.com/htdocs -c woocommerce unpatch"
+  echo "   WP_ROOT=/home/me/htdocs ${BIN} patch"
+  echo
+
+  echo " Parameters:"
+  echo "  -h --help             Show this page"
+  echo "  -v --verbose          Show more output"
+  echo "  -p|--path [WP_ROOT]   The htdocs root for the WordPress site"
+  echo "  -c|--component [REQUESTED_COMPONENT_SLUG]   Patch/unpatch a single component"
+  echo "  COMMAND               'patch' or 'unpatch'"
+  echo
+
   exit 1
 }
 
@@ -97,13 +119,13 @@ function configure_and_create_directories() {
     mkdir -p "${TEMP_DIR}"
 
     REPOSITORY_DIR="${WORK_DIR}"/repos
-    for PATCH_TYPE_DIR in "${PATCH_TYPES[@]}"; do
-      mkdir -p "${REPOSITORY_DIR}"/"${PATCH_TYPE_DIR}"
+    for COMPONENT_TYPE in "${COMPONENT_TYPES[@]}"; do
+      mkdir -p "${REPOSITORY_DIR}"/"${COMPONENT_TYPE}"
     done
 
     PATCHED_DIR="${WORK_DIR}"/patched
-    for PATCH_TYPE_DIR in "${PATCH_TYPES[@]}"; do
-      mkdir -p "${PATCHED_DIR}"/"${PATCH_TYPE_DIR}"
+    for COMPONENT_TYPE in "${COMPONENT_TYPES[@]}"; do
+      mkdir -p "${PATCHED_DIR}"/"${COMPONENT_TYPE}"
     done
   fi
 }
@@ -134,7 +156,7 @@ function fail_if_missing_required_variables() {
 }
 
 ##
-# Dump all required variables
+# Dump all required (global) variables
 #
 function dump_required_variables() {
   for REQUIRED_VARIABLE_NAME in "${REQUIRED_VARIABLE_NAMES[@]}"; do
@@ -176,68 +198,33 @@ function get_wp_site_url_but_fail_if_bad() {
   __="${WP_URL}"
 }
 
-##
-# Fail if a component has already been patched.
-#
-function fail_if_component_is_already_patched() {
+function get_component_wp_dir() {
   local WP_ROOT="${1}"
   local COMPONENT_TYPE="${2}"
   local COMPONENT_SLUG="${3}"
 
-  has_component_been_patched "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}"
-  if [ ${__} -eq 1 ]; then
-    echo "Component already patched: ${COMPONENT_TYPE}/${COMPONENT_SLUG}"
-    exit 1
-  fi
+  __=${WP_ROOT}/wp-content/${COMPONENT_TYPE}/${COMPONENT_SLUG}
 }
 
 ##
-# Fail if a component does not exist in the repository.
-#
-function fail_if_component_is_not_in_repository() {
-  local WP_ROOT="${1}"
-  local COMPONENT_TYPE="${2}"
-  local COMPONENT_SLUG="${3}"
-  local COMPONENT_VERSION="${4}"
-
-  does_component_exist_in_repository "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
-  if [ ${__} -ne 1 ]; then
-    echo "Component not in repository: ${COMPONENT_TYPE}/${COMPONENT_SLUG} (${COMPONENT_VERSION})"
-    exit 1
-  fi
-}
-
-##
-# Has a omponent already been patched?
+# Has a component already been patched within the WP site?
 #
 function has_component_been_patched() {
   local WP_ROOT="${1}"
   local COMPONENT_TYPE="${2}"
   local COMPONENT_SLUG="${3}"
 
-  pushd "${WP_ROOT}"/wp-content/${COMPONENT_TYPE} > /dev/null
-  local FILE_NAMES=($(grep -lE '^// START : wpatcher$' "${COMPONENT_SLUG}"/* 2> /dev/null))
-  popd > /dev/null
+  get_component_wp_dir "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}"
+  local COMPONENT_DIR="${__}"
+
+  if [ -d "${COMPONENT_DIR}" ]; then
+    pushd "${COMPONENT_DIR}" > /dev/null
+    local FILE_NAMES=($(grep -lE '^// START : wpatcher$' * 2> /dev/null))
+    popd > /dev/null
+  fi
 
   __=0
   if [ "${#FILE_NAMES[@]}" -gt 0 ]; then
-    __=1
-  fi
-}
-
-##
-# Have we already created a tgz of the original component
-# in our local repository?
-#
-function does_component_exist_in_repository() {
-  local WP_ROOT="${1}"
-  local COMPONENT_TYPE="${2}"
-  local COMPONENT_SLUG="${3}"
-  local COMPONENT_VERSION="${4}"
-
-  local FILE_NAME="${REPOSITORY_DIR}"/${COMPONENT_TYPE}/${COMPONENT_SLUG},${COMPONENT_VERSION}.tgz
-  __=0
-  if [ -f "${FILE_NAME}" ]; then
     __=1
   fi
 }
@@ -251,7 +238,7 @@ function copy_component_to_repository() {
   local COMPONENT_SLUG="${3}"
   local COMPONENT_VERSION="${4}"
 
-  echo -n "Save ${COMPONENT_TYPE}/${COMPONENT_SLUG} (${COMPONENT_VERSION}) to local repos ... "
+  echo -n "Copy unpatched ${COMPONENT_TYPE}/${COMPONENT_SLUG} (${COMPONENT_VERSION}) to local repos ... "
 
   tar -C "${WP_ROOT}"/wp-content/${COMPONENT_TYPE} \
     -czf "${REPOSITORY_DIR}"/${COMPONENT_TYPE}/${COMPONENT_SLUG},${COMPONENT_VERSION}.tgz "${COMPONENT_SLUG}"
@@ -276,6 +263,7 @@ function create_patched_component() {
   local IS_PATCHED=0
   local IS_PACKAGED=0
 
+  rm -fr "${TEMP_DIR}" && mkdir -p "${TEMP_DIR}"
   pushd "${TEMP_DIR}" > /dev/null
 
   echo -n "Extract and patch ${COMPONENT_TYPE}/${COMPONENT_SLUG} (${COMPONENT_VERSION}) ... "
@@ -305,94 +293,182 @@ function create_patched_component() {
   __=${IS_PACKAGED}
 }
 
-##
-# Do we already have a tgz of the patched component & version?
-#
-function does_patched_component_exist() {
+function get_component_repository_package_file_name() {
   local COMPONENT_TYPE="${1}"
   local COMPONENT_SLUG="${2}"
   local COMPONENT_VERSION="${3}"
 
-  local FILE_NAME="${PATCHED_DIR}"/${COMPONENT_TYPE}/${COMPONENT_SLUG},${COMPONENT_VERSION}.tgz
-  __=0
-  if [ -f "${FILE_NAME}" ]; then
+  # "patched" or "unpatched"
+  local PACKAGE_TYPE="${4}"
+
+  local FILE_NAME=
+
+  if [ "${PACKAGE_TYPE}" == 'patched' ]; then
+    FILE_NAME="${PATCHED_DIR}"/${COMPONENT_TYPE}/${COMPONENT_SLUG},${COMPONENT_VERSION}.tgz
+  elif [ "${PACKAGE_TYPE}" == 'unpatched' ]; then
+    FILE_NAME="${REPOSITORY_DIR}"/${COMPONENT_TYPE}/${COMPONENT_SLUG},${COMPONENT_VERSION}.tgz
+  else
+    :
+  fi
+
+  __="${FILE_NAME}"
+}
+
+##
+# Do we already have a tgz of the patched component & version?
+#
+function does_patched_component_exist_in_repository() {
+  local COMPONENT_TYPE="${1}"
+  local COMPONENT_SLUG="${2}"
+  local COMPONENT_VERSION="${3}"
+
+  get_component_repository_package_file_name "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}" 'patched'
+  if [ -f "${__}" ]; then
     __=1
+  else
+    __=0
   fi
 }
 
 ##
-# Deploy a patched component to the WP installation.
+# Do we already have a tgz of the patched component & version?
 #
-function deploy_patched_component() {
+function does_unpatched_component_exist_in_repository() {
+  local COMPONENT_TYPE="${1}"
+  local COMPONENT_SLUG="${2}"
+  local COMPONENT_VERSION="${3}"
+
+  get_component_repository_package_file_name "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}" 'unpatched'
+  if [ -f "${__}" ]; then
+    __=1
+  else
+    __=0
+  fi
+}
+
+##
+# Deploy either a patched or unpatched component to a WP site. If the component
+# already exists in the WP site, make a temp backup of it so we can revert this
+# deployment if something goes wrong.
+#
+function deploy_component_to_site() {
   local WP_ROOT="${1}"
   local COMPONENT_TYPE="${2}"
   local COMPONENT_SLUG="${3}"
   local COMPONENT_VERSION="${4}"
 
-  local IS_OLD_COMPONENT_DELETED=0
+  ## "patch" or "unpatch"
+  local ACTION="${5}"
+
+  local IS_NEW_COMPONENT_EXTRACTED=0
   local IS_NEW_COMPONENT_INSTALLED=0
 
-  pushd "${WP_ROOT}"/wp-content/${COMPONENT_TYPE} > /dev/null
-  echo -n "Remove ${COMPONENT_TYPE}/${COMPONENT_SLUG} (${COMPONENT_VERSION}) ... "
-  rm -fr "${COMPONENT_SLUG}"
-  if [ $? -eq 0 ]; then
-    IS_OLD_COMPONENT_DELETED=1
-    echo $(show_inline_good "OK")
+  local TARGET_BASE_DIR="${WP_ROOT}"/wp-content/${COMPONENT_TYPE}
+  local COMPONENT_SOURCE_PACKAGE=
+  local COMPONENT_TARGET_DIR="${TARGET_BASE_DIR}"/"${COMPONENT_SLUG}"
+  local COMPONENT_BACKUP_DIR="${TARGET_BASE_DIR}"/"${COMPONENT_SLUG}"-temp
+
+  __=
+  if [ "${ACTION}" == 'patch' ]; then
+    get_component_repository_package_file_name "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}" 'patched'
+    COMPONENT_SOURCE_PACKAGE="${__}"
+  elif [ "${ACTION}" == 'unpatch' ]; then
+    get_component_repository_package_file_name "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}" 'unpatched'
+    COMPONENT_SOURCE_PACKAGE="${__}"
   else
-    echo $(show_inline_error "failed")
+    :
   fi
 
-  if [ ${IS_OLD_COMPONENT_DELETED} -eq 1 ]; then
-    echo -n "Extract patched ${COMPONENT_TYPE}/${COMPONENT_SLUG} (${COMPONENT_VERSION}) ... "
-    tar -xf "${PATCHED_DIR}"/${COMPONENT_TYPE}/${COMPONENT_SLUG},${COMPONENT_VERSION}.tgz
+  if [ -z "${__}" ] || [ ! -f "${COMPONENT_SOURCE_PACKAGE}" ]; then
+    echo "Unable to ${ACTION} component: ${COMPONENT_TYPE}/${COMPONENT_SLUG} (${COMPONENT_VERSION}) - missing from repository"
+  else
+    # Extract the unpatched component to a temp directory.
+    rm -r "${TEMP_DIR}" && mkdir -p "${TEMP_DIR}"
     if [ $? -eq 0 ]; then
-      IS_NEW_COMPONENT_INSTALLED=1
-      echo $(show_inline_good "OK")
-    else
-      echo $(show_inline_error "failed")
+      pushd "${TEMP_DIR}" > /dev/null
+
+      echo -n "Extracting ${ACTION} ${COMPONENT_TYPE}/${COMPONENT_SLUG} (${COMPONENT_VERSION}) ... "
+      tar -xzf "${COMPONENT_SOURCE_PACKAGE}"
+      if [ $? -eq 0 ] && [ -d "${TEMP_DIR}"/"${COMPONENT_SLUG}" ]; then
+        IS_NEW_COMPONENT_EXTRACTED=1
+        echo $(show_inline_good "OK")
+      else
+        echo $(show_inline_error "failed")
+      fi
+
+      popd > /dev/null
     fi
+
+    # If the component is already installed on the WP site, back it up.
+    rm -fr "${COMPONENT_BACKUP_DIR}"
+    if [ -d "${COMPONENT_TARGET_DIR}" ]; then
+      echo -n "Temp Backup ${COMPONENT_TYPE}/${COMPONENT_SLUG} (${COMPONENT_VERSION}) ... "
+      mv "${COMPONENT_TARGET_DIR}" "${COMPONENT_BACKUP_DIR}"
+      if [ $? -eq 0 ] && [ -d "${COMPONENT_BACKUP_DIR}" ]; then
+        echo $(show_inline_good "OK")
+      else
+        echo $(show_inline_error "failed")
+      fi
+    fi
+
+    if [ ! -d "${COMPONENT_TARGET_DIR}" ] && [ ${IS_NEW_COMPONENT_EXTRACTED} -eq 1 ]; then
+      echo -n "Deploy ${ACTION} ${COMPONENT_TYPE}/${COMPONENT_SLUG} (${COMPONENT_VERSION}) ... "
+      mv "${TEMP_DIR}"/"${COMPONENT_SLUG}" "${COMPONENT_TARGET_DIR}"
+      if [ $? -eq 0 ] && [ -d "${COMPONENT_TARGET_DIR}" ]; then
+        IS_NEW_COMPONENT_INSTALLED=1
+        echo $(show_inline_good "OK")
+      else
+        echo $(show_inline_error "failed")
+      fi
+    fi
+
+    if [ ${IS_NEW_COMPONENT_INSTALLED} -ne 1 ] && [ -d "${COMPONENT_BACKUP_DIR}" ]; then
+      echo "Restoring backed-up ${COMPONENT_TYPE}/${COMPONENT_SLUG} (${COMPONENT_VERSION})"
+      mv "${COMPONENT_BACKUP_DIR}" "${COMPONENT_TARGET_DIR}"
+    fi
+
   fi
 
-  if [ ${IS_OLD_COMPONENT_DELETED} -eq 1 ] && [ ${IS_NEW_COMPONENT_INSTALLED} -ne 1 ]; then
-    echo "Failed to extract patched component: ${COMPONENT_TYPE}/${COMPONENT_SLUG}"
-    echo "Attempting to reinstall the original component"
-    echo "TODO..."
+  if [ ${IS_NEW_COMPONENT_INSTALLED} -eq 1 ] && [ -d "${COMPONENT_BACKUP_DIR}" ]; then
+    rm -fr "${COMPONENT_BACKUP_DIR}"
   fi
 
-  popd > /dev/null
-
-  __=0
-  if [ ${IS_OLD_COMPONENT_DELETED} -eq 1 ] && [ ${IS_NEW_COMPONENT_INSTALLED} -eq 1 ]; then
-    __=1
-  fi
+  __=${IS_NEW_COMPONENT_INSTALLED}
 }
 
+##
+# Deploy a patched component to a WP site.
+#
 function apply_patch() {
   local WP_ROOT="${1}"
   local PATCH_META="${2}"
 
-  COMPONENT_TYPE=$(echo "${PATCH_META}" | cut -d',' -f1)
-  COMPONENT_SLUG=$(echo "${PATCH_META}" | cut -d',' -f2)
-  COMPONENT_VERSION=$(echo "${PATCH_META}" | cut -d',' -f3)
-  PATCH_FILE_NAME=$(echo "${PATCH_META}" | cut -d',' -f4)
+  local COMPONENT_TYPE=$(echo "${PATCH_META}" | cut -d',' -f1)
+  local COMPONENT_SLUG=$(echo "${PATCH_META}" | cut -d',' -f2)
+  local COMPONENT_VERSION=$(echo "${PATCH_META}" | cut -d',' -f3)
+  local PATCH_FILE_NAME=$(echo "${PATCH_META}" | cut -d',' -f4)
 
-  fail_if_component_is_already_patched "${WP_ROOT}" "${COMPONENT_TYPE}" "${PLUGIN_SLUG}"
+  local DOES_UNPATCHED_COMPONENT_EXIST_IN_REPOS=0
 
-  does_component_exist_in_repository "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
+  has_component_been_patched "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}"
   if [ ${__} -ne 1 ]; then
-    copy_component_to_repository "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
+    does_unpatched_component_exist_in_repository "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
+    if [ ${__} -ne 1 ]; then
+      copy_component_to_repository "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
+    fi
   fi
 
-  fail_if_component_is_not_in_repository "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
+  does_unpatched_component_exist_in_repository "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
+  DOES_UNPATCHED_COMPONENT_EXIST_IN_REPOS=${__}
 
-  does_patched_component_exist "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
-  if [ ${__} -ne 1 ]; then
+  does_patched_component_exist_in_repository "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
+  if [ ${__} -ne 1 ] && [ ${DOES_UNPATCHED_COMPONENT_EXIST_IN_REPOS} -eq 1 ]; then
     create_patched_component "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
   fi
 
-  does_patched_component_exist "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
+  does_patched_component_exist_in_repository "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
   if [ ${__} -eq 1 ]; then
-    deploy_patched_component "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
+    deploy_component_to_site "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}" 'patch'
   fi
 
   # This sets __ to 1 if the component was successfully patched.
@@ -400,18 +476,54 @@ function apply_patch() {
 }
 
 ##
-# Parse command-line arguments
+# If a site is running a patched component, and the unpatched version of that
+# component is in our local repository, deploy the unpatched component to the
+# site.
+#
+function revert_patch() {
+  local WP_ROOT="${1}"
+  local PATCH_META="${2}"
+
+  local COMPONENT_TYPE=$(echo "${PATCH_META}" | cut -d',' -f1)
+  local COMPONENT_SLUG=$(echo "${PATCH_META}" | cut -d',' -f2)
+  local COMPONENT_VERSION=$(echo "${PATCH_META}" | cut -d',' -f3)
+  local PATCH_FILE_NAME=$(echo "${PATCH_META}" | cut -d',' -f4)
+
+  has_component_been_patched "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}"
+  local HAS_PATCH_BEEN_APPLIED=${__}
+
+  does_unpatched_component_exist_in_repository "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
+  local DOES_UNPATCHED_COMPONENT_EXIST_IN_REPOS=${__}
+
+  if [ ${HAS_PATCH_BEEN_APPLIED} -ne 1 ]; then
+    # A patched version of the component is not installed on the WP site.
+    :
+  elif [ ${DOES_UNPATCHED_COMPONENT_EXIST_IN_REPOS} -ne 1 ]; then
+    # The unpatched version of this component does not exist in our local repository.
+    :
+    get_component_repository_package_file_name "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}" 'unpatched'
+  else
+    deploy_component_to_site "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}" 'unpatch'
+  fi
+}
+
+##
+# parse command-line arguments
 #
 function parse_command_line() {
   while true; do
     case "${1}" in
+      -h | --help)
+        show_usage_then_exit
+        ;;
+
       -p | --path)
         WP_ROOT="${2}"
         shift 2
         ;;
 
       -t | --type)
-        REQUESTED_PATCH_TYPE="${2}"
+        REQUESTED_COMPONENT_TYPE="${2}"
         shift 2
         ;;
 
@@ -441,8 +553,8 @@ function parse_command_line() {
     WP_ROOT="$(realpath "${PWD}")"
   fi
 
-  if [ -z "${REQUESTED_PATCH_TYPE}" ]; then
-    REQUESTED_PATCH_TYPE="${PATCH_TYPES[0]}"
+  if [ -z "${REQUESTED_COMPONENT_TYPE}" ]; then
+    REQUESTED_COMPONENT_TYPE="${COMPONENT_TYPES[0]}"
   fi
 
   COMMAND="${1}"
@@ -501,7 +613,7 @@ for ACTIVE_PLUGIN_META in "${ACTIVE_PLUGINS[@]}"; do
   PATCH_FILE_NAME="${PATCHES_DIR}"/plugins/"${PLUGIN_SLUG}"/"${PLUGIN_SLUG}"-"${PLUGIN_VERSION}".patch
   IS_WANTED=0
 
-  if [ "${REQUESTED_PATCH_TYPE}" != "plugins" ]; then
+  if [ "${REQUESTED_COMPONENT_TYPE}" != "plugins" ]; then
     :
   elif [ -n "${REQUESTED_COMPONENT_SLUG}" ] && [ "${REQUESTED_COMPONENT_SLUG}" != "${PLUGIN_SLUG}" ]; then
     :
@@ -539,19 +651,28 @@ fi
 echo "${COMMAND} list"
 printf ' >>> %s\n' "${PATCH_LIST[@]}"
 
+echo
+
 ##
 # Ready to apply the patch list.
 #
+[ -w "${WP_ROOT}" ] && wp --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages maintenance-mode activate
+PATCH_INDEX=0
 for PATCH_META in "${PATCH_LIST[@]}"; do
   if [ "${COMMAND}" == 'patch' ]; then
     apply_patch "${WP_ROOT}" "${PATCH_META}"
   elif [ "${COMMAND}" == 'unpatch' ]; then
-    echo "UNPATCH IN HERE"
+    revert_patch "${WP_ROOT}" "${PATCH_META}"
   else
     # Unknown command
     :
   fi
+
+  echo
+
+  PATCH_INDEX=$((PATCH_INDEX + 1))
 done
+[ -w "${WP_ROOT}" ] && wp --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages maintenance-mode deactivate
 
 echo "Finished"
 exit 0
