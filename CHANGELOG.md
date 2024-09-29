@@ -3,14 +3,13 @@
 All notable changes to this project will be documented in this file.
 
 
-## [Unreleased] - 2024-09-29
+## [Unreleased]
 
 ...
 
-## [0.2.0] - 2024-09-29
+## [1.0.0] - 2024-09-29
 
-Getting close to a version one release.
+Initial release, with the following commands working:
 
-wpatch.sh is fairly tidy now, and the revert from temporary backup looks good.
-
+patch, unpatch, backup, update
 

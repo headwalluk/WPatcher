@@ -3,7 +3,7 @@
 ##
 # wpatch.sh
 #
-# Version: 0.2.0
+# Version: 1.0.0
 # Project URI: https://github.com/headwalluk/wpatcher
 # Author: Paul Faulkner
 # Author URI: https://headwall-hosting.com/

@@ -17,21 +17,30 @@ Install some prerequisites...
 sudo apt install patch tar ncurses-bin wget
 ```
 
-```bash
-source <(curl -s https://raw.githubusercontent.com/headwalluk/wpatcher/refs/heads/main/install-wpatcher.sh)
-```
 
 ### Install / update the tool
 ```bash
-wget -O wpatch "raw.githubusercontent.com/headwalluk/wpatcher/refs/heads/main/wpatch.sh"
-chmod +x ./wpatch
-sudo mv ./wpatch /usr/local/bin/
-```
+# Pull the installer script and execute it.
+# NOTE: The script installs the tool to /usr/local/bin/wpatch
+source <(curl -s https://raw.githubusercontent.com/headwalluk/wpatcher/refs/heads/main/install-wpatcher.sh)
 
-### Check it works
-```bash
+# Update definitions (if you're not using your own local wpatches dir)
+wpatch update
+
+# Check it works
 wpatch -h
 ```
+
+Backup your site's plugins
+
+```bash
+wpatch -p /var/wexample.com/htdocs backup
+```
+
+WPatcher usses ${HOME}/.wpatcher/ as its work directory and local repository. If you use the "backup" command to backup all your site's plugins & themes, the are stored in here.
+
+If you decide to delete ${HOME}/.wpatcher/ for any reason, you might consider having a look in ${HOME}/.wpatcher/repos/ before you do so.
+
 
 ## Examples
 
@@ -53,14 +62,26 @@ Revert all patches
 wpatch --path /var/www/example.com/htdocs unpatch
 ```
 
+Use your own local collection of patches
 
-## Contents
+Create a file system like this:
 
-1. wpatch.sh : A tool to "patch" and "unpatch" plugins and themes in WordPress sites. Patches are stored as diffs and applied with the "patch" command in this script. Original/unpatched versions of the plugins and themes are saved in a local cache so the patches can be reverted.
-2. wpatches/ : A collection of ready-to-go patches for some common plugins.
+* /opt/my-wp-patches/
+ * themes/
+ * plugins/
+  * my-plugin/
+   * my-plugin-1.0.0.patch
+  * woocommerce/
+   * woocommerce-9.3.2.patch
+   * woocommerce-9.3.3.patch
 
-## Background
+```bash
+# Backup all your plugins to your local repository
+wpatch --path /var/www/my-website.com/htdocs backup
 
-...
+# Apply all patches from your patches dir that are applicable to this site.
+wpatch -d /opt/my-wp-patches/ --path /var/www/my-website.com/htdocs patch
 
-
+## Unpatch everything.
+wpatch -d /opt/my-wp-patches/ --path /var/www/my-website.com/htdocs unpatch
+```
