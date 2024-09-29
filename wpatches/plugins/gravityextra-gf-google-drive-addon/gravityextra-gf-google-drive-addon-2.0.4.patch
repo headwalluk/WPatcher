@@ -1,0 +1,56 @@
+diff -ur gravityextra-gf-google-drive-addon/class-googledriveaddon.php gravityextra-gf-google-drive-addon-new/class-googledriveaddon.php
+--- gravityextra-gf-google-drive-addon/class-googledriveaddon.php	2024-07-09 09:52:09.000000000 +0100
++++ gravityextra-gf-google-drive-addon-new/class-googledriveaddon.php	2024-09-29 11:10:30.131025371 +0100
+@@ -1,4 +1,4 @@
+-<?php
++<?Php
+ GFForms::include_addon_framework();
+ require_once('includes/gravity-extra-license.php');
+ 
+@@ -48,14 +48,21 @@
+ 		require_once plugin_dir_path(__FILE__) . 'lib/vendor/autoload.php';
+ 		$this->fields_support = apply_filters('googledriveaddon_fields_support', array('fileupload', 'googledrive', 'image_hopper'));
+ 		parent::init();
+-		$url = 'https://gravityextra.com/addon-version/';
+-		$curl = curl_init();
+-		$timeout = 5;
+-		curl_setopt($curl, CURLOPT_URL, $url);
+-		curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+-		curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, $timeout);
+-		$data = curl_exec($curl);
+-		curl_close($curl);
++
++        // 2024-08-28 PF. Wrap the "call home" in a transient to avoid
++        // calling it on every page load.
++        if (($data = get_site_transient('gfe_gd_addon_data')) === false) {
++            $url = 'https://gravityextra.com/addon-version/';
++            $curl = curl_init();
++            $timeout = 3; //5;
++            curl_setopt($curl, CURLOPT_URL, $url);
++            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
++            curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, $timeout);
++            $data = curl_exec($curl);
++            curl_close($curl);
++            set_site_transient('gfe_gd_addon_data', $data, DAY_IN_SECONDS);
++        }
++
+ 		preg_match('/<td\s+id="googledrive-addon">([^<]+)<\/td>/', $data, $this->matches);
+ 		add_action('load-plugins.php', function () {
+ 			add_filter('site_transient_update_plugins', array($this, 'update_plugins_googledrive_addon'));
+diff -ur gravityextra-gf-google-drive-addon/googledriveaddon.php gravityextra-gf-google-drive-addon-new/googledriveaddon.php
+--- gravityextra-gf-google-drive-addon/googledriveaddon.php	2024-07-09 09:52:09.000000000 +0100
++++ gravityextra-gf-google-drive-addon-new/googledriveaddon.php	2024-09-29 11:10:30.131025371 +0100
+@@ -44,3 +44,13 @@
+ 
+ }
+ 
++
++// START : wpatcher
++add_filter( 'plugin_row_meta', function($links, $file){
++    if( $file == 'gravityextra-gf-google-drive-addon/googledriveaddon.php'){
++        $links['wpatcher'] = '<span style="background-color: purple; color: white; padding:0.2em 0.5em; font-weight: 700; border-radius: 0.3em">PATCHED</span>';
++    }
++    
++    return $links;
++}, 10, 2 );
++// END : wpatcher

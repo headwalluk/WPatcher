@@ -24,6 +24,11 @@
 IS_VERBOSE=0
 IS_RUNNING_FROM_REPOS=0
 STARTUP_DIR=$(realpath "$(dirname "${0}")")
+IS_USING_CUSTOM_PATCHES_DIR=0
+
+IS_THEMES_SUPPORT_ENABLAED=0
+
+GIT_REPOS=https://github.com/headwalluk/wpatcher.git
 
 REQUIRED_VARIABLE_NAMES=(
   'STARTUP_DIR'
@@ -37,11 +42,11 @@ REQUIRED_VARIABLE_NAMES=(
   'COMMAND'
 )
 
-REQUIRED_BINARIES=('patch' 'tar' 'wp' 'tput')
+REQUIRED_BINARIES=('patch' 'tar' 'wp' 'tput' 'git')
 
 COMPONENT_TYPES=('plugins' 'themes')
 
-VALID_COMMANDS=('patch' 'unpatch')
+VALID_COMMANDS=('patch' 'unpatch' 'backup' 'update')
 
 # .	Colour
 # 0	Black
@@ -63,7 +68,7 @@ COLOUR_GOOD=2
 function show_usage_then_exit() {
   local BIN=$(basename "${0}")
   # echo "Usage: ${BIN} [-vh] [-p <WP_ROOT>] [-t <plugins|themes>] [-c <COMPONENT_SLUG>] <COMMAND>"
-  echo "Usage: ${BIN} [-vh] [-p <WP_ROOT>] [-c <COMPONENT_SLUG>] <COMMAND>"
+  echo "Usage: ${BIN} [-vh] [-p <WP_ROOT>] [-d <PATCHES_DIR>] [-c <COMPONENT_SLUG>] <COMMAND>"
   echo
 
   echo "If WP_ROOT is not set, it's assumed WordPress is installed in the current directory."
@@ -71,18 +76,21 @@ function show_usage_then_exit() {
 
   echo "Examples:"
   echo "   ${BIN} -p /var/www/example.com/htdocs patch"
+  echo "   ${BIN} -p /var/www/example.com/htdocs backup"
   echo "   ${BIN} -p /var/www/example.com/htdocs -c woocommerce patch"
   echo "   ${BIN} -p /var/www/example.com/htdocs unpatch"
   echo "   ${BIN} -p /var/www/example.com/htdocs -c woocommerce unpatch"
   echo "   WP_ROOT=/home/me/htdocs ${BIN} patch"
+  echo "   WP_ROOT=/home/me/htdocs ${BIN} -d ~/my-wp-pacthes/ patch"
   echo
 
   echo " Parameters:"
   echo "  -h --help             Show this page"
   echo "  -v --verbose          Show more output"
   echo "  -p|--path [WP_ROOT]   The htdocs root for the WordPress site"
+  echo "  -d [PATCHES_DIR]      Custom location of the patches directory"
   echo "  -c|--component [REQUESTED_COMPONENT_SLUG]   Patch/unpatch a single component"
-  echo "  COMMAND               'patch' or 'unpatch'"
+  echo "  COMMAND               $(echo ${VALID_COMMANDS[@]} | sed 's/ /|/g')"
   echo
 
   exit 1
@@ -103,11 +111,11 @@ function show_inline_error() {
 #
 function configure_and_create_directories() {
   # Are we running from repository, or from installed location?
-  if [ -d "${STARTUP_DIR}"/wpatches ]; then
-    echo "Running from repository"
-    PATCHES_DIR="${STARTUP_DIR}"/wpatches
-    IS_RUNNING_FROM_REPOS=1
-  fi
+  # if [ -d "${STARTUP_DIR}"/wpatches ]; then
+  #   echo "Running from repository"
+  #   PATCHES_DIR="${STARTUP_DIR}"/wpatches
+  #   IS_RUNNING_FROM_REPOS=1
+  # fi
 
   if [ -n "${HOME}" ]; then
     WORK_DIR="${HOME}"/.wpatcher
@@ -127,6 +135,10 @@ function configure_and_create_directories() {
     for COMPONENT_TYPE in "${COMPONENT_TYPES[@]}"; do
       mkdir -p "${PATCHED_DIR}"/"${COMPONENT_TYPE}"
     done
+
+    if [ -z "${PATCHES_DIR}" ]; then
+      PATCHES_DIR="${WORK_DIR}"/wpatches
+    fi
   fi
 }
 
@@ -507,6 +519,28 @@ function revert_patch() {
   fi
 }
 
+function update_patches_from_upstream() {
+  if [ ${IS_USING_CUSTOM_PATCHES_DIR} -ne 0 ]; then
+    echo "Updating patches from upstream is not supported when using a custom patches directory"
+    exit 1
+  fi
+
+  rm -fr "${PATCHES_DIR}"
+  rm -fr "${TEMP_DIR}" && mkdir -p "${TEMP_DIR}"
+  pushd "${TEMP_DIR}" > /dev/null
+  git clone "${GIT_REPOS}"
+  if [ $? -ne 0 ]; then
+    echo "Failed to clone upstream repository"
+  else
+    mv wpatcher/wpatches "${PATCHES_DIR}"
+  fi
+  popd > /dev/null
+
+  for COMPONENT_TYPE in "${COMPONENT_TYPES[@]}"; do
+    mkdir -p "${PATCHES_DIR}"/"${COMPONENT_TYPE}"
+  done
+}
+
 ##
 # parse command-line arguments
 #
@@ -517,8 +551,19 @@ function parse_command_line() {
         show_usage_then_exit
         ;;
 
+      -v | --verbose)
+        IS_VERBOSE=1
+        shift
+        ;;
+
       -p | --path)
         WP_ROOT="${2}"
+        shift 2
+        ;;
+
+      -d)
+        PATCHES_DIR="$(realpath "${2}")"
+        IS_USING_CUSTOM_PATCHES_DIR=1
         shift 2
         ;;
 
@@ -530,11 +575,6 @@ function parse_command_line() {
       -c | --component)
         REQUESTED_COMPONENT_SLUG="${2}"
         shift 2
-        ;;
-
-      -v | --verbose)
-        IS_VERBOSE=1
-        shift
         ;;
 
       --)
@@ -582,8 +622,25 @@ configure_and_create_directories
 
 fail_if_missing_required_variables
 
+if [ "${REQUESTED_COMPONENT_TYPE}" == 'themes' ] && [ ${IS_THEMES_SUPPORT_ENABLAED} -ne 1 ]; then
+  echo "Themes support is not implemented yet" >&2
+  exit 1
+fi
+
 if [ ${IS_VERBOSE} -ne 0 ]; then
   dump_required_variables
+fi
+
+if [ ! -d "${PATCHES_DIR}" ]; then
+  echo "No patches installed in ${PATCHES_DIR}" >&2
+  echo "To update patches from upstream: ${0} update" >&2
+
+  exit 1
+fi
+
+if [ "${COMMAND}" == 'update' ]; then
+  update_patches_from_upstream
+  exit 0
 fi
 
 fail_if_bad_wp_root "${WP_ROOT}"
@@ -599,6 +656,8 @@ echo "Site: ${WP_URL}"
 ACTIVE_PLUGINS=($(wp plugin list --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages --status=active --skip-update-check --format=csv --fields=name,version | grep -vE '^name,'))
 ACTIVE_THEMES=($(wp theme list --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages --status=active,parent --skip-update-check --format=csv --fields=name,version | grep -vE '^name,'))
 
+ACTIVE_COMPONENTS=($(printf 'plugins,%s\n' "${ACTIVE_PLUGINS[@]}") $(printf 'themes,%s\n' "${ACTIVE_THEMES[@]}"))
+
 ##
 # Create a list of plugins/themes that have patches available and create a patch-list.
 # Each record in the patch-list is a comma-separated string:
@@ -607,38 +666,41 @@ ACTIVE_THEMES=($(wp theme list --path="${WP_ROOT}" --skip-plugins --skip-themes 
 #
 echo "Scanning site for components to ${COMMAND}"
 PATCH_LIST=()
-for ACTIVE_PLUGIN_META in "${ACTIVE_PLUGINS[@]}"; do
-  PLUGIN_SLUG=$(echo "${ACTIVE_PLUGIN_META}" | cut -d',' -f1)
-  PLUGIN_VERSION=$(echo "${ACTIVE_PLUGIN_META}" | cut -d',' -f2)
-  PATCH_FILE_NAME="${PATCHES_DIR}"/plugins/"${PLUGIN_SLUG}"/"${PLUGIN_SLUG}"-"${PLUGIN_VERSION}".patch
+for COMPONENT_META in "${ACTIVE_COMPONENTS[@]}"; do
+  COMPONENT_TYPE=$(echo "${COMPONENT_META}" | cut -d',' -f1)
+  COMPONENT_SLUG=$(echo "${COMPONENT_META}" | cut -d',' -f2)
+  COMPONENT_VERSION=$(echo "${COMPONENT_META}" | cut -d',' -f3)
+  PATCH_FILE_NAME=${PATCHES_DIR}/${COMPONENT_TYPE}/${COMPONENT_SLUG}/${COMPONENT_SLUG}-${COMPONENT_VERSION}.patch
   IS_WANTED=0
+  HAS_BEEN_PATCHED=0
 
-  if [ "${REQUESTED_COMPONENT_TYPE}" != "plugins" ]; then
+  if [ "${REQUESTED_COMPONENT_TYPE}" != "${COMPONENT_TYPE}" ]; then
     :
   elif [ -n "${REQUESTED_COMPONENT_SLUG}" ] && [ "${REQUESTED_COMPONENT_SLUG}" != "${PLUGIN_SLUG}" ]; then
     :
   else
     [ ${IS_VERBOSE} -ne 0 ] && echo -n "PATCH: ${PATCH_FILE_NAME} ... "
+
     if [ -f "${PATCH_FILE_NAME}" ]; then
       has_component_been_patched "${WP_ROOT}" plugins "${PLUGIN_SLUG}"
       HAS_BEEN_PATCHED=${__}
+    fi
 
-      if [ "${COMMAND}" == 'unpatch' ] && [ ${HAS_BEEN_PATCHED} -eq 1 ]; then
-        IS_WANTED=1
-      elif [ "${COMMAND}" == 'patch' ] && [ ${HAS_BEEN_PATCHED} -eq 0 ]; then
-        IS_WANTED=1
-      else
-        :
-      fi
-
-      if [ ${IS_WANTED} -eq 1 ]; then
-        [ ${IS_VERBOSE} -ne 0 ] && echo "${COMMAND}"
-        PATCH_LIST+=("plugins,${PLUGIN_SLUG},${PLUGIN_VERSION},${PATCH_FILE_NAME}")
-      else
-        [ ${IS_VERBOSE} -ne 0 ] && echo "skip"
-      fi
+    if [ "${COMMAND}" == 'backup' ] && [ ${HAS_BEEN_PATCHED} -ne 1 ]; then
+      IS_WANTED=1
+    elif [ "${COMMAND}" == 'unpatch' ] && [ -f "${PATCH_FILE_NAME}" ] && [ ${HAS_BEEN_PATCHED} -eq 1 ]; then
+      IS_WANTED=1
+    elif [ "${COMMAND}" == 'patch' ] && [ -f "${PATCH_FILE_NAME}" ] && [ ${HAS_BEEN_PATCHED} -eq 0 ]; then
+      IS_WANTED=1
     else
-      [ ${IS_VERBOSE} -ne 0 ] && echo "n/a"
+      :
+    fi
+
+    if [ ${IS_WANTED} -eq 1 ]; then
+      [ ${IS_VERBOSE} -ne 0 ] && echo "${COMMAND}"
+      PATCH_LIST+=("${COMPONENT_TYPE},${COMPONENT_SLUG},${COMPONENT_VERSION},${PATCH_FILE_NAME}")
+    else
+      [ ${IS_VERBOSE} -ne 0 ] && echo "skip"
     fi
   fi
 done
@@ -648,10 +710,11 @@ if [ "${#PATCH_LIST[@]}" -eq 0 ]; then
   exit 0
 fi
 
-echo "${COMMAND} list"
-printf ' >>> %s\n' "${PATCH_LIST[@]}"
-
-echo
+if [ ${IS_VERBOSE} -eq 1 ]; then
+  echo "${COMMAND} list"
+  printf ' >>> %s\n' "${PATCH_LIST[@]}"
+  echo
+fi
 
 ##
 # Ready to apply the patch list.
@@ -659,16 +722,27 @@ echo
 [ -w "${WP_ROOT}" ] && wp --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages maintenance-mode activate
 PATCH_INDEX=0
 for PATCH_META in "${PATCH_LIST[@]}"; do
-  if [ "${COMMAND}" == 'patch' ]; then
+  COMPONENT_TYPE=$(echo "${PATCH_META}" | cut -d',' -f1)
+  COMPONENT_SLUG=$(echo "${PATCH_META}" | cut -d',' -f2)
+  COMPONENT_VERSION=$(echo "${PATCH_META}" | cut -d',' -f3)
+  PATCH_FILE_NAME=$(echo "${PATCH_META}" | cut -d',' -f4)
+
+  if [ "${COMMAND}" == 'backup' ]; then
+    # Only backup unpatched components to the repository.
+    has_component_been_patched "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}"
+    if [ ${__} -ne 1 ]; then
+      copy_component_to_repository "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
+    fi
+  elif [ "${COMMAND}" == 'patch' ]; then
     apply_patch "${WP_ROOT}" "${PATCH_META}"
+    echo
   elif [ "${COMMAND}" == 'unpatch' ]; then
     revert_patch "${WP_ROOT}" "${PATCH_META}"
+    echo
   else
     # Unknown command
     :
   fi
-
-  echo
 
   PATCH_INDEX=$((PATCH_INDEX + 1))
 done
