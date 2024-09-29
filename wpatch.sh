@@ -3,7 +3,7 @@
 ##
 # wpatch.sh
 #
-# Version: 1.0.0
+# Version: 1.2.0
 # Project URI: https://github.com/headwalluk/wpatcher
 # Author: Paul Faulkner
 # Author URI: https://headwall-hosting.com/
@@ -23,7 +23,8 @@
 #
 IS_VERBOSE=0
 IS_RUNNING_FROM_REPOS=0
-STARTUP_DIR=$(realpath "$(dirname "${0}")")
+STARTUP_BIN=$(realpath "${0}")
+STARTUP_DIR=$(realpath "$(dirname "${STARTUP_BIN}")")
 IS_USING_CUSTOM_PATCHES_DIR=0
 
 IS_FORCE_ENABLED=0
@@ -67,6 +68,13 @@ VALID_COMMANDS=('patch' 'unpatch' 'backup' 'update' 'dump')
 # 9	Reset to default color
 COLOUR_ERROR=1
 COLOUR_GOOD=2
+
+# Extract the version from our headers.
+STARTUP_VERSION=$(head -n 20 "${STARTUP_BIN}" | grep -E '[# ]+Version' | cut -d':' -f2 | xargs)
+if [ -z "${STARTUP_VERSION}" ]; then
+  echo "Failed to determine WPatcher version" >&2
+  exit 1
+fi
 
 ##
 # Show usage
@@ -562,7 +570,19 @@ function update_patches_from_upstream() {
     echo "Failed to clone upstream repository"
   else
     mv wpatcher/wpatches "${PATCHES_DIR}"
+
+    if [ -w "${STARTUP_BIN}" ]; then
+      echo -n "Updating $(basename "${STARTUP_BIN}") ... "
+      cp wpatch.sh "${STARTUP_BIN}"
+      if [ $? -eq 0 ]; then
+        echo $(show_inline_good "OK")
+      else
+        echo $(show_inline_error "failed")
+      fi
+    fi
+
   fi
+
   popd > /dev/null
 
   for COMPONENT_TYPE in "${COMPONENT_TYPES[@]}"; do
@@ -662,6 +682,8 @@ function parse_command_line() {
 # if [ -z "${COMMAND}" ]; then
 #   COMMAND='patch'
 # fi
+
+echo "WPatcher :: ${STARTUP_VERSION} :: ${GIT_REPOS}"
 
 load_configuration
 
