@@ -26,9 +26,13 @@ IS_RUNNING_FROM_REPOS=0
 STARTUP_DIR=$(realpath "$(dirname "${0}")")
 IS_USING_CUSTOM_PATCHES_DIR=0
 
+IS_FORCE_ENABLED=0
+
 IS_THEMES_SUPPORT_ENABLAED=0
 
 GIT_REPOS=https://github.com/headwalluk/wpatcher.git
+
+CONFIG_FILE_NAME=/etc/wpatcher.conf
 
 WPCLI_PARAMS=
 
@@ -48,7 +52,7 @@ REQUIRED_BINARIES=('patch' 'tar' 'wp' 'tput' 'git')
 
 COMPONENT_TYPES=('plugins' 'themes')
 
-VALID_COMMANDS=('patch' 'unpatch' 'backup' 'update')
+VALID_COMMANDS=('patch' 'unpatch' 'backup' 'update' 'dump')
 
 # .	Colour
 # 0	Black
@@ -70,7 +74,7 @@ COLOUR_GOOD=2
 function show_usage_then_exit() {
   local BIN=$(basename "${0}")
   # echo "Usage: ${BIN} [-vh] [-p <WP_ROOT>] [-t <plugins|themes>] [-c <COMPONENT_SLUG>] <COMMAND>"
-  echo "Usage: ${BIN} [-vh] [-p <WP_ROOT>] [-d <PATCHES_DIR>] [-c <COMPONENT_SLUG>] <COMMAND>"
+  echo "Usage: ${BIN} [-vhf] [-p <WP_ROOT>] [-d <PATCHES_DIR>] [-c <COMPONENT_SLUG>] <COMMAND>"
   echo
 
   echo "If WP_ROOT is not set, it's assumed WordPress is installed in the current directory."
@@ -79,7 +83,7 @@ function show_usage_then_exit() {
   echo "Examples:"
   echo "   ${BIN} -p /var/www/example.com/htdocs patch"
   echo "   ${BIN} -p /var/www/example.com/htdocs backup"
-  echo "   ${BIN} -p /var/www/example.com/htdocs -c woocommerce patch"
+  echo "   ${BIN} -p /var/www/example.com/htdocs --force -c woocommerce patch"
   echo "   ${BIN} -p /var/www/example.com/htdocs unpatch"
   echo "   ${BIN} -p /var/www/example.com/htdocs -c woocommerce unpatch"
   echo "   WP_ROOT=/home/me/htdocs ${BIN} patch"
@@ -89,9 +93,10 @@ function show_usage_then_exit() {
   echo " Parameters:"
   echo "  -h --help             Show this page"
   echo "  -v --verbose          Show more output"
-  echo "  -p|--path [WP_ROOT]   The htdocs root for the WordPress site"
+  echo "  -f --force            Force re-patching of an already-patched component"
+  echo "  -p --path [WP_ROOT]   The htdocs root for the WordPress site"
   echo "  -d [PATCHES_DIR]      Custom location of the patches directory"
-  echo "  -c|--component [REQUESTED_COMPONENT_SLUG]   Patch/unpatch a single component"
+  echo "  -c --component [REQUESTED_COMPONENT_SLUG]   Patch/unpatch a single component"
   echo "  COMMAND               $(echo ${VALID_COMMANDS[@]} | sed 's/ /|/g')"
   echo
 
@@ -119,11 +124,19 @@ function configure_and_create_directories() {
   #   IS_RUNNING_FROM_REPOS=1
   # fi
 
-  if [ -n "${HOME}" ]; then
+  if [ -z "${WORK_DIR}" ] && [ -n "${HOME}" ]; then
     WORK_DIR="${HOME}"/.wpatcher
   fi
 
+  if [ -n "${WORK_DIR}" ] && [ ! -d "${WORK_DIR}" ]; then
+    echo "Work directory does not exist: ${WORK_DIR}" >&2
+    exit 1
+  fi
+
   if [ -n "${WORK_DIR}" ]; then
+    # Remove trailing slash. This assumes WORK_DIR is not simple "/"
+    WORK_DIR="${WORK_DIR%/}"
+
     TEMP_DIR="${WORK_DIR}"/temp
     rm -fr "${TEMP_DIR}"
     mkdir -p "${TEMP_DIR}"
@@ -142,6 +155,20 @@ function configure_and_create_directories() {
       PATCHES_DIR="${WORK_DIR}"/wpatches
     fi
   fi
+
+  local REQUIRED_DIRS=("${REPOSITORY_DIR}" "${TEMP_DIR}" "${PATCHED_DIR}")
+  for REQUIRED_DIR in "${REQUIRED_DIRS[@]}"; do
+    if [ ! -d "${REQUIRED_DIR}" ]; then
+      echo "Required directory does not exist: ${REQUIRED_DIR}" >&2
+      exit 1
+    elif [ ! -w "${REQUIRED_DIR}" ]; then
+      echo "Required directory is not writable: ${REQUIRED_DIR}" >&2
+      exit 1
+    else
+      # OK
+      :
+    fi
+  done
 }
 
 ##
@@ -544,6 +571,17 @@ function update_patches_from_upstream() {
 }
 
 ##
+# Load system configuration
+#
+function load_configuration() {
+  if [ -n "${CONFIG_FILE_NAME}" ] && [ -f "${CONFIG_FILE_NAME}" ]; then
+    [ ${IS_VERBOSE} -ne 0 ] && echo "Loading configuration from ${CONFIG_FILE_NAME}"
+
+    source "${CONFIG_FILE_NAME}"
+  fi
+}
+
+##
 # parse command-line arguments
 #
 function parse_command_line() {
@@ -555,6 +593,11 @@ function parse_command_line() {
 
       -v | --verbose)
         IS_VERBOSE=1
+        shift
+        ;;
+
+      -f | --force)
+        IS_FORCE_ENABLED=1
         shift
         ;;
 
@@ -610,11 +653,17 @@ function parse_command_line() {
   else
     :
   fi
+
+  if [ "${COMMAND}" == 'dump' ]; then
+    IS_VERBOSE=1
+  fi
 }
 
 # if [ -z "${COMMAND}" ]; then
 #   COMMAND='patch'
 # fi
+
+load_configuration
 
 parse_command_line "${@}"
 
@@ -656,6 +705,12 @@ WP_URL="${__}"
 
 echo "Site: ${WP_URL}"
 
+if [ "${COMMAND}" == 'abort' ]; then
+  show_inline_error "ABORT"
+  echo
+  exit 1
+fi
+
 ##
 # Get a list of active plugins & themes on the site.
 #
@@ -696,7 +751,7 @@ for COMPONENT_META in "${ACTIVE_COMPONENTS[@]}"; do
       IS_WANTED=1
     elif [ "${COMMAND}" == 'unpatch' ] && [ -f "${PATCH_FILE_NAME}" ] && [ ${HAS_BEEN_PATCHED} -eq 1 ]; then
       IS_WANTED=1
-    elif [ "${COMMAND}" == 'patch' ] && [ -f "${PATCH_FILE_NAME}" ] && [ ${HAS_BEEN_PATCHED} -eq 0 ]; then
+    elif [ "${COMMAND}" == 'patch' ] && [ -f "${PATCH_FILE_NAME}" ] && { [ ${HAS_BEEN_PATCHED} -eq 0 ] || [ ${IS_FORCE_ENABLED} -eq 1 ]; }; then
       IS_WANTED=1
     else
       :
@@ -736,8 +791,14 @@ for PATCH_META in "${PATCH_LIST[@]}"; do
   if [ "${COMMAND}" == 'backup' ]; then
     # Only backup unpatched components to the repository.
     has_component_been_patched "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}"
-    if [ ${__} -ne 1 ]; then
+    HAS_BEEN_PATCHED=${__}
+
+    does_unpatched_component_exist_in_repository "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
+    EXISTS_IN_LOCAL=${__}
+
+    if [ ${HAS_BEEN_PATCHED} -ne 1 ] && [ ${EXISTS_IN_LOCAL} -ne 1 ]; then
       copy_component_to_repository "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
+      EXISTS_IN_LOCAL=${__}
     fi
   elif [ "${COMMAND}" == 'patch' ]; then
     apply_patch "${WP_ROOT}" "${PATCH_META}"
