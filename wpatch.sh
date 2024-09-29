@@ -688,7 +688,7 @@ for COMPONENT_META in "${ACTIVE_COMPONENTS[@]}"; do
     [ ${IS_VERBOSE} -ne 0 ] && echo -n "PATCH: ${PATCH_FILE_NAME} ... "
 
     if [ -f "${PATCH_FILE_NAME}" ]; then
-      has_component_been_patched "${WP_ROOT}" plugins "${PLUGIN_SLUG}"
+      has_component_been_patched "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}"
       HAS_BEEN_PATCHED=${__}
     fi
 
