@@ -17,6 +17,10 @@ Install some prerequisites...
 sudo apt install patch tar ncurses-bin wget
 ```
 
+```bash
+source <(curl -s https://raw.githubusercontent.com/headwalluk/wpatcher/refs/heads/main/install-wpatcher.sh)
+```
+
 ### Install / update the tool
 ```bash
 wget -O wpatch "raw.githubusercontent.com/headwalluk/wpatcher/refs/heads/main/wpatch.sh"

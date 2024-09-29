@@ -631,16 +631,16 @@ if [ ${IS_VERBOSE} -ne 0 ]; then
   dump_required_variables
 fi
 
+if [ "${COMMAND}" == 'update' ]; then
+  update_patches_from_upstream
+  exit 0
+fi
+
 if [ ! -d "${PATCHES_DIR}" ]; then
   echo "No patches installed in ${PATCHES_DIR}" >&2
   echo "To update patches from upstream: ${0} update" >&2
 
   exit 1
-fi
-
-if [ "${COMMAND}" == 'update' ]; then
-  update_patches_from_upstream
-  exit 0
 fi
 
 fail_if_bad_wp_root "${WP_ROOT}"
