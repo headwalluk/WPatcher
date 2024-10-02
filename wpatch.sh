@@ -128,7 +128,10 @@ function configure_and_create_directories() {
   # Are we running from repository, or from installed location?
   if [ -d "${STARTUP_DIR}"/wpatches ]; then
     echo "Running from repository"
-    PATCHES_DIR="${STARTUP_DIR}"/wpatches
+
+    # PATCHES_DIR might still need to be defined in /etc/wpatcher/conf so levae it empty for now.
+    # PATCHES_DIR="${STARTUP_DIR}"/wpatches
+
     IS_RUNNING_FROM_REPOS=1
   fi
 
@@ -159,7 +162,7 @@ function configure_and_create_directories() {
       mkdir -p "${PATCHED_DIR}"/"${COMPONENT_TYPE}"
     done
 
-    if [ -z "${PATCHES_DIR}" ]; then
+    if [ -z "${PATCHES_DIR}" ] && [ -d "${WORK_DIR}"/wpatches ]; then
       PATCHES_DIR="${WORK_DIR}"/wpatches
     fi
   fi
