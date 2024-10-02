@@ -501,6 +501,8 @@ function apply_patch() {
   local PATCH_FILE_NAME=$(echo "${PATCH_META}" | cut -d',' -f4)
 
   local DOES_UNPATCHED_COMPONENT_EXIST_IN_REPOS=0
+  local DOES_PATCHED_COMPONENT_EXIST_IN_REPOS=0
+  local PATCHED_COMPONENT_FILE_NAME=
 
   has_component_been_patched "${WP_ROOT}" "${COMPONENT_TYPE}" "${COMPONENT_SLUG}"
   if [ ${__} -ne 1 ]; then
@@ -513,8 +515,23 @@ function apply_patch() {
   does_unpatched_component_exist_in_repository "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
   DOES_UNPATCHED_COMPONENT_EXIST_IN_REPOS=${__}
 
+  # If a patched component already exists, but the patch diff file is newer,
+  # delete the patched component now.
+  get_component_repository_package_file_name "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}" 'patched'
+  PATCHED_COMPONENT_FILE_NAME="${__}"
+  if [ -z "${PATCHED_COMPONENT_FILE_NAME}" ] || [ ! "${PATCHED_COMPONENT_FILE_NAME}" ]; then
+    :
+  elif [ "${PATCHED_COMPONENT_FILE_NAME}" -nt "${PATCH_FILE_NAME}" ]; then
+    :
+  else
+    echo "Delete old patched component ${PATCHED_COMPONENT_FILE_NAME}"
+    rm -f "${PATCHED_COMPONENT_FILE_NAME}"
+  fi
+
   does_patched_component_exist_in_repository "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
-  if [ ${__} -ne 1 ] && [ ${DOES_UNPATCHED_COMPONENT_EXIST_IN_REPOS} -eq 1 ]; then
+  DOES_PATCHED_COMPONENT_EXIST_IN_REPOS=${__}
+
+  if [ ${DOES_PATCHED_COMPONENT_EXIST_IN_REPOS} -ne 1 ] && [ ${DOES_UNPATCHED_COMPONENT_EXIST_IN_REPOS} -eq 1 ]; then
     create_patched_component "${COMPONENT_TYPE}" "${COMPONENT_SLUG}" "${COMPONENT_VERSION}"
   fi
 
