@@ -4,6 +4,7 @@
 # wpatch.sh
 #
 # Version: 1.2.0
+# Date: 2024-11-13
 # Project URI: https://github.com/headwalluk/wpatcher
 # Author: Paul Faulkner
 # Author URI: https://headwall-hosting.com/
@@ -271,7 +272,7 @@ function has_component_been_patched() {
 
   if [ -d "${COMPONENT_DIR}" ]; then
     pushd "${COMPONENT_DIR}" > /dev/null
-    local FILE_NAMES=($(grep -lE '^// START : wpatcher$' * 2> /dev/null))
+    local FILE_NAMES=($(grep -lE '^// START : wpatcher' *.php 2> /dev/null))
     popd > /dev/null
   fi
 
@@ -741,7 +742,7 @@ fi
 
 if [ ${IS_VERBOSE} -ne 0 ]; then
   dump_required_variables
-  exit 0
+  # exit 0
 fi
 
 if [ "${COMMAND}" == 'update' ]; then

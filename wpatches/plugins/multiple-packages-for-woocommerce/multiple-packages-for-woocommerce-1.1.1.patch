@@ -1,0 +1,46 @@
+diff -ur multiple-packages-for-woocommerce/class-settings.php multiple-packages-for-woocommerce-patched/class-settings.php
+--- multiple-packages-for-woocommerce/class-settings.php	2024-07-07 06:12:20.000000000 +0100
++++ multiple-packages-for-woocommerce-patched/class-settings.php	2024-11-08 18:01:51.707526795 +0000
+@@ -16,6 +16,9 @@
+ 
+ class BE_Multiple_Packages_Settings extends WC_Settings_Page {
+ 
++    public $version;
++    public $multi_package_restrictions;
++
+ 	/**
+ 	 * Constructor.
+ 	 */
+@@ -255,6 +258,7 @@
+ 	 * @access public
+ 	 * @return void
+ 	 */
++    public $package_restrictions;
+ 	function get_package_restrictions() {
+ 		$this->package_restrictions = array_filter( (array) get_option( $this->multi_package_restrictions ) );
+ 	}
+diff -ur multiple-packages-for-woocommerce/multiple-packages-shipping.php multiple-packages-for-woocommerce-patched/multiple-packages-shipping.php
+--- multiple-packages-for-woocommerce/multiple-packages-shipping.php	2024-07-07 06:12:20.000000000 +0100
++++ multiple-packages-for-woocommerce-patched/multiple-packages-shipping.php	2024-11-08 18:01:51.707526795 +0000
+@@ -43,6 +43,7 @@
+ 			class BE_Multiple_Packages {
+ 
+ 				public $settings_class;
++                public $package_restrictions;
+ 
+ 				/**
+ 				 * Constructor.
+@@ -192,3 +193,13 @@
+ 		);
+ 	}
+ } // end function: woocommerce_multiple_packaging_init
++
++// START : wpatcher
++add_filter( 'plugin_row_meta', function($links, $file){
++    if( $file == 'multiple-packages-for-woocommerce/multiple-packages-shipping.php'){
++        $links['wpatcher'] = '<span style="background-color: purple; color: white; padding:0.2em 0.5em; font-weight: 700; border-radius: 0.3em">PATCHED : 2024-11-08</span>';
++    }
++    
++    return $links;
++}, 10, 2 );
++// END : wpatcher

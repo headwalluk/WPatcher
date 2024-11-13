@@ -1,6 +1,6 @@
 diff -ur woocommerce/includes/admin/helper/class-wc-helper.php woocommerce-patched/includes/admin/helper/class-wc-helper.php
 --- woocommerce/includes/admin/helper/class-wc-helper.php	2024-08-27 19:04:44.000000000 +0100
-+++ woocommerce-patched/includes/admin/helper/class-wc-helper.php	2024-10-02 12:11:11.973371353 +0100
++++ woocommerce-patched/includes/admin/helper/class-wc-helper.php	2024-11-12 21:04:58.934466975 +0000
 @@ -1580,6 +1580,8 @@
  	 * @return array
  	 */
@@ -11,9 +11,9 @@ diff -ur woocommerce/includes/admin/helper/class-wc-helper.php woocommerce-patch
  		$data      = get_transient( $cache_key );
  		if ( false !== $data ) {
 diff -ur woocommerce/includes/class-woocommerce.php woocommerce-patched/includes/class-woocommerce.php
---- woocommerce/includes/class-woocommerce.php	2024-09-25 13:56:36.000000000 +0100
-+++ woocommerce-patched/includes/class-woocommerce.php	2024-10-02 12:11:11.965371269 +0100
-@@ -298,7 +298,18 @@
+--- woocommerce/includes/class-woocommerce.php	2024-11-12 16:55:52.000000000 +0000
++++ woocommerce-patched/includes/class-woocommerce.php	2024-11-12 21:04:58.942467067 +0000
+@@ -297,7 +297,18 @@
  		add_action( 'init', array( $this, 'add_image_sizes' ) );
  		add_action( 'init', array( $this, 'load_rest_api' ) );
  		if ( $this->is_request( 'admin' ) || ( $this->is_rest_api_request() && ! $this->is_store_api_request() ) || ( defined( 'WP_CLI' ) && WP_CLI ) ) {
@@ -33,7 +33,7 @@ diff -ur woocommerce/includes/class-woocommerce.php woocommerce-patched/includes
  		}
  		add_action( 'switch_blog', array( $this, 'wpdb_table_fix' ), 0 );
  		add_action( 'activated_plugin', array( $this, 'activated_plugin' ) );
-@@ -330,9 +341,9 @@
+@@ -329,9 +340,9 @@
  		$container->get( WebhookUtil::class );
  		$container->get( Marketplace::class );
  		$container->get( TimeUtil::class );
@@ -46,7 +46,7 @@ diff -ur woocommerce/includes/class-woocommerce.php woocommerce-patched/includes
  
  		/**
  		 * These classes have a register method for attaching hooks.
-@@ -658,8 +669,8 @@
+@@ -653,8 +664,8 @@
  		include_once WC_ABSPATH . 'includes/class-wc-logger.php';
  		include_once WC_ABSPATH . 'includes/queue/class-wc-action-queue.php';
  		include_once WC_ABSPATH . 'includes/queue/class-wc-queue.php';
@@ -57,7 +57,7 @@ diff -ur woocommerce/includes/class-woocommerce.php woocommerce-patched/includes
  		include_once WC_ABSPATH . 'includes/blocks/class-wc-blocks-utils.php';
  
  		/**
-@@ -831,6 +842,19 @@
+@@ -826,6 +837,19 @@
  		 */
  		do_action( 'before_woocommerce_init' ); // phpcs:ignore WooCommerce.Commenting.CommentHooks.MissingSinceComment
  
@@ -77,9 +77,10 @@ diff -ur woocommerce/includes/class-woocommerce.php woocommerce-patched/includes
  		// Set up localisation.
  		$this->load_plugin_textdomain();
  
+Only in woocommerce-patched/includes: class-woocommerce.php.orig
 diff -ur woocommerce/woocommerce.php woocommerce-patched/woocommerce.php
---- woocommerce/woocommerce.php	2024-09-25 13:56:36.000000000 +0100
-+++ woocommerce-patched/woocommerce.php	2024-10-02 12:11:11.977371396 +0100
+--- woocommerce/woocommerce.php	2024-11-12 16:55:52.000000000 +0000
++++ woocommerce-patched/woocommerce.php	2024-11-12 21:04:58.978467482 +0000
 @@ -65,3 +65,13 @@
  if ( class_exists( \Automattic\Jetpack\Connection\Rest_Authentication::class ) ) {
  	\Automattic\Jetpack\Connection\Rest_Authentication::init();
@@ -88,7 +89,7 @@ diff -ur woocommerce/woocommerce.php woocommerce-patched/woocommerce.php
 +// START : wpatcher
 +add_filter( 'plugin_row_meta', function($links, $file){
 +    if( $file == 'woocommerce/woocommerce.php'){
-+        $links['wpatcher'] = '<span style="background-color: purple; color: white; padding:0.2em 0.5em; font-weight: 700; border-radius: 0.3em">PATCHED</span>';
++        $links['wpatcher'] = '<span style="background-color: purple; color: white; padding:0.2em 0.5em; font-weight: 700; border-radius: 0.3em">PATCHED : 2024-11-13</span>';
 +    }
 +    
 +    return $links;

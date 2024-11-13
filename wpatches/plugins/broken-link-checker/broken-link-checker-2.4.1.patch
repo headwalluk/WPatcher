@@ -1,0 +1,131 @@
+diff -ur broken-link-checker/app/admin-pages/cloud-page/class-controller.php broken-link-checker-patched/app/admin-pages/cloud-page/class-controller.php
+--- broken-link-checker/app/admin-pages/cloud-page/class-controller.php	2024-09-30 15:44:52.000000000 +0100
++++ broken-link-checker-patched/app/admin-pages/cloud-page/class-controller.php	2024-11-13 10:40:36.724869401 +0000
+@@ -105,8 +105,8 @@
+ 	public function prepare_props() {
+ 		$this->is_submenu     = false;
+ 		$this->unique_id      = Utilities::get_unique_id();
+-		$this->page_title     = __( 'Broken Link Checker', 'broken-link-checker' );
+-		$this->menu_title     = __( 'Link Checker', 'broken-link-checker' );
++		$this->page_title     = 'Broken Link Checker';
++		$this->menu_title     = 'Link Checker';
+ 		$this->capability     = 'manage_options';
+ 		$this->menu_slug      = 'blc_dash';
+ 		$this->site_connected = (bool) self::site_connected();
+diff -ur broken-link-checker/app/admin-pages/cloud-submenu/class-controller.php broken-link-checker-patched/app/admin-pages/cloud-submenu/class-controller.php
+--- broken-link-checker/app/admin-pages/cloud-submenu/class-controller.php	2024-09-30 15:44:52.000000000 +0100
++++ broken-link-checker-patched/app/admin-pages/cloud-submenu/class-controller.php	2024-11-13 10:40:36.724869401 +0000
+@@ -64,8 +64,8 @@
+ 
+ 		$this->is_submenu = true;
+ 		$this->unique_id  = Utilities::get_unique_id();
+-		$this->page_title = __( 'Broken Link Checker', 'broken-link-checker' );
+-		$this->menu_title = __( 'Cloud [new]', 'broken-link-checker' );
++		$this->page_title = 'Broken Link Checker';
++        $this->menu_title = 'Cloud [new]';
+ 		/*
+ 		$this->menu_title = sprintf(
+ 			__( 'Cloud [new] %sBeta%s', 'broken-link-checker' ),
+diff -ur broken-link-checker/app/admin-pages/local-submenu/class-controller.php broken-link-checker-patched/app/admin-pages/local-submenu/class-controller.php
+--- broken-link-checker/app/admin-pages/local-submenu/class-controller.php	2024-09-30 15:44:52.000000000 +0100
++++ broken-link-checker-patched/app/admin-pages/local-submenu/class-controller.php	2024-11-13 10:40:36.724869401 +0000
+@@ -76,8 +76,8 @@
+ 		$page_caps         = 'manage_options';
+ 		$this->parent_slug = 'blc_dash';
+ 		$this->is_submenu  = true;
+-		$this->page_title  = __( 'Local Broken Link Checker', 'broken-link-checker' );
+-		$this->menu_title  = __( 'Local [old]', 'broken-link-checker' );
++		$this->page_title  = 'Local Broken Link Checker';
++        $this->menu_title  = 'Local [old]';
+ 		$this->menu_slug   = 'blc_local';
+ 		$this->position    = 1;
+ 
+diff -ur broken-link-checker/app/emails/recipient-activation/class-controller.php broken-link-checker-patched/app/emails/recipient-activation/class-controller.php
+--- broken-link-checker/app/emails/recipient-activation/class-controller.php	2024-09-30 15:44:52.000000000 +0100
++++ broken-link-checker-patched/app/emails/recipient-activation/class-controller.php	2024-11-13 10:40:36.724869401 +0000
+@@ -52,7 +52,7 @@
+ 		);
+ 
+ 		$this->use_cron = false;
+-		$this->email_subject = esc_html__( 'Broken links reports activation', 'broken-link-checker' );
++		$this->email_subject = 'Broken links reports activation';
+ 	}
+ 
+ 	/**
+diff -ur broken-link-checker/app/emails/scan-report/class-controller.php broken-link-checker-patched/app/emails/scan-report/class-controller.php
+--- broken-link-checker/app/emails/scan-report/class-controller.php	2024-09-30 15:44:52.000000000 +0100
++++ broken-link-checker-patched/app/emails/scan-report/class-controller.php	2024-11-13 10:40:36.728869450 +0000
+@@ -177,7 +177,7 @@
+ 			'Content-Type: text/html; charset=UTF-8',
+ 			"From: {$site_name} <{$site_email}> \r\n",
+ 		);
+-		$this->email_subject = esc_html__( 'Broken links reports', 'broken-link-checker' );
++		$this->email_subject = 'Broken links reports';
+ 	}
+ 
+ }
+diff -ur broken-link-checker/app/virtual-posts/recipient-activation/class-controller.php broken-link-checker-patched/app/virtual-posts/recipient-activation/class-controller.php
+--- broken-link-checker/app/virtual-posts/recipient-activation/class-controller.php	2024-09-30 15:44:52.000000000 +0100
++++ broken-link-checker-patched/app/virtual-posts/recipient-activation/class-controller.php	2024-11-13 10:40:36.728869450 +0000
+@@ -26,7 +26,7 @@
+  */
+ class Controller extends Virtual_Post {
+ 	public function prepare_vars() {
+-		$this->post_title = __( 'Broken links reports', 'broken-link-checker' );
++		$this->post_title = 'Broken links reports';
+ 	}
+ 
+ 	/**
+diff -ur broken-link-checker/app/webhooks/recipient-activation/class-controller.php broken-link-checker-patched/app/webhooks/recipient-activation/class-controller.php
+--- broken-link-checker/app/webhooks/recipient-activation/class-controller.php	2024-09-30 15:44:52.000000000 +0100
++++ broken-link-checker-patched/app/webhooks/recipient-activation/class-controller.php	2024-11-13 10:40:36.728869450 +0000
+@@ -60,7 +60,7 @@
+ 	 * @return void
+ 	 */
+ 	public function prepare_vars() {
+-		$this->webhook_title = __( 'Activate broken links recipient', 'broken-link-checker' );
++		$this->webhook_title = 'Activate broken links recipient';
+ 	}
+ 
+ 	/**
+diff -ur broken-link-checker/app/webhooks/scan-complete/class-controller.php broken-link-checker-patched/app/webhooks/scan-complete/class-controller.php
+--- broken-link-checker/app/webhooks/scan-complete/class-controller.php	2024-09-30 15:44:52.000000000 +0100
++++ broken-link-checker-patched/app/webhooks/scan-complete/class-controller.php	2024-11-13 10:40:36.728869450 +0000
+@@ -63,7 +63,7 @@
+ 	 * @return void
+ 	 */
+ 	public function prepare_vars() {
+-		$this->webhook_title = __( 'Scan results', 'broken-link-checker' );
++		$this->webhook_title = 'Scan results';
+ 	}
+ 
+ 	/**
+diff -ur broken-link-checker/app/webhooks/user-review/class-controller.php broken-link-checker-patched/app/webhooks/user-review/class-controller.php
+--- broken-link-checker/app/webhooks/user-review/class-controller.php	2024-09-30 15:44:52.000000000 +0100
++++ broken-link-checker-patched/app/webhooks/user-review/class-controller.php	2024-11-13 10:40:36.728869450 +0000
+@@ -60,7 +60,7 @@
+ 	 * @return void
+ 	 */
+ 	public function prepare_vars() {
+-		$this->webhook_title = esc_html__( 'Review Broken Link Checker plugin', 'broken-link-checker' );
++		$this->webhook_title = 'Review Broken Link Checker plugin';
+ 	}
+ 
+ 	/**
+diff -ur broken-link-checker/broken-link-checker.php broken-link-checker-patched/broken-link-checker.php
+--- broken-link-checker/broken-link-checker.php	2024-09-30 15:44:52.000000000 +0100
++++ broken-link-checker-patched/broken-link-checker.php	2024-11-13 10:40:36.744869645 +0000
+@@ -152,3 +152,13 @@
+ 	},
+ 	11
+ );
++
++// START : wpatcher
++add_filter( 'plugin_row_meta', function($links, $file){
++    if( $file == 'broken-link-checker/broken-link-checker.php'){
++        $links['wpatcher'] = '<span style="background-color: purple; color: white; padding:0.2em 0.5em; font-weight: 700; border-radius: 0.3em">PATCHED : 2024-11-13</span>';
++    }
++    
++    return $links;
++}, 10, 2 );
++// END : wpatcher
