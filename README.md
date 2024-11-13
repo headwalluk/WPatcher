@@ -2,8 +2,6 @@
 
 A tool for patching and unpatching WordPress plugins and themes.
 
-**IMPORTANT** This is an active work-in-progress. DO NOT USE THIS TOOL OR ANY OF THE PATCHES YET.
-
 This was born out of a need to be able to apply small patches to some plugins. Usually to limit outgoing HTTP API connections that drag-down performance for the website owner and/or their clients. It's also useful if you've got some abandoned plugins across your hosting landscape and you want to maintain some simple patches, without forking the abandoned plugins into new projects.
 
 ## Quick start

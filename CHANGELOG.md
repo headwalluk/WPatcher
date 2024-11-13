@@ -2,15 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-
 ## [Unreleased]
 
 ...
 
 ## [1.2.0] - 2024-11-13
 
-More robust checking for plugins that have already been patched, by slightly
-loosening the grep for "// START : wpatcher" in a PHP file.
+More robust checking for plugins that have already been patched, by slightly loosening the grep for "// START : wpatcher" in a PHP file.
 
 Added some new patches:
 
