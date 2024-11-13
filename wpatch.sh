@@ -3,7 +3,7 @@
 ##
 # wpatch.sh
 #
-# Version: 1.2.1
+# Version: 1.3.0
 # Date: 2024-11-13
 # Project URI: https://github.com/headwalluk/wpatcher
 # Author: Paul Faulkner
@@ -31,6 +31,8 @@ IS_USING_CUSTOM_PATCHES_DIR=0
 IS_FORCE_ENABLED=0
 
 IS_THEMES_SUPPORT_ENABLAED=0
+
+USE_MAINTENANCE_MODE=0
 
 GIT_REPOS=https://github.com/headwalluk/wpatcher.git
 
@@ -103,6 +105,7 @@ function show_usage_then_exit() {
   echo "  -h --help             Show this page"
   echo "  -v --verbose          Show more output"
   echo "  -f --force            Force re-patching of an already-patched component"
+  echo "  -m --maintenance      Switch the site into maintenance mode before patching"
   echo "  -p --path [WP_ROOT]   The htdocs root for the WordPress site"
   echo "  -d [PATCHES_DIR]      Custom location of the patches directory"
   echo "  -c --component [REQUESTED_COMPONENT_SLUG]   Patch/unpatch a single component"
@@ -659,6 +662,11 @@ function parse_command_line() {
         shift 2
         ;;
 
+      -m | --maintenance)
+        USE_MAINTENANCE_MODE=1
+        shift
+        ;;
+
       -d)
         PATCHES_DIR="$(realpath "${2}")"
         IS_USING_CUSTOM_PATCHES_DIR=1
@@ -843,7 +851,17 @@ fi
 ##
 # Ready to apply the patch list.
 #
-[ -w "${WP_ROOT}" ] && wp ${WPCLI_PARAMS} --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages maintenance-mode activate
+IS_IN_MAINTENANCE_MODE=0
+if [ ${USE_MAINTENANCE_MODE} -ne 0 ]; then
+  # TODO: Fail if the site is already in maintenance mode?
+
+  [ -w "${WP_ROOT}" ] && wp ${WPCLI_PARAMS} --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages maintenance-mode activate
+
+  IS_IN_MAINTENANCE_MODE=1
+
+  # TODO: Check we are actually in mainteancne mode
+fi
+
 PATCH_INDEX=0
 for PATCH_META in "${PATCH_LIST[@]}"; do
   COMPONENT_TYPE=$(echo "${PATCH_META}" | cut -d',' -f1)
@@ -876,7 +894,10 @@ for PATCH_META in "${PATCH_LIST[@]}"; do
 
   PATCH_INDEX=$((PATCH_INDEX + 1))
 done
-[ -w "${WP_ROOT}" ] && wp ${WPCLI_PARAMS} --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages maintenance-mode deactivate
+
+if [ ${USE_MAINTENANCE_MODE} -ne 0 ] && [ ${IS_IN_MAINTENANCE_MODE} -eq 1 ]; then
+  [ -w "${WP_ROOT}" ] && wp ${WPCLI_PARAMS} --path="${WP_ROOT}" --skip-plugins --skip-themes --skip-packages maintenance-mode deactivate
+fi
 
 echo "Finished"
 exit 0
