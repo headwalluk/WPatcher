@@ -3,7 +3,7 @@
 ##
 # wpatch.sh
 #
-# Version: 1.2.0
+# Version: 1.2.1
 # Date: 2024-11-13
 # Project URI: https://github.com/headwalluk/wpatcher
 # Author: Paul Faulkner
